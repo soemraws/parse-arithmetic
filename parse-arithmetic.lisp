@@ -353,6 +353,10 @@ the position where parsing ended."
     (when (< position end)
       (let ((character (char string position)))
 	(cond
+	  ((char= character #\-)
+	   (multiple-value-bind (component position)
+	       (parse-component string :start (+ position 1) :end end)
+	     (values (list :function "*" -1 component) position)))
 	  ((char= character #\()
 	   (parse-expression string :start (+ position 1) :end end :sub-expression t))
 	  ((alpha-char-p character)
