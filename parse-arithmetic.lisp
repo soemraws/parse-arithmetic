@@ -244,7 +244,6 @@ Predicate to test if the operator character is right-associative."
 Comparison if operator-2 has a higher precedence than operator-1.
 When operator-1 and operator-2 have the same precedence, and
 operator-1 is right-associative, this also returns true."
-  ;;; XXX FIX FOR SAME PRECEDENCE CLASS
   (cond
     ((null operator-1) t)
     ((null operator-2) nil)
@@ -340,7 +339,6 @@ parsed expression and the position where parsing ended."
 			      args) pos))
 	     (values (list :variable (subseq string start position)) position)))))
 
-
 (defun parse-component (string &key (start 0) end)
   "parse-component string &key (start 0) end => expression, position
 
@@ -353,10 +351,6 @@ the position where parsing ended."
     (when (< position end)
       (let ((character (char string position)))
 	(cond
-	  ((char= character #\-)
-	   (multiple-value-bind (component position)
-	       (parse-component string :start (+ position 1) :end end)
-	     (values (list :function "*" -1 component) position)))
 	  ((char= character #\()
 	   (parse-expression string :start (+ position 1) :end end :sub-expression t))
 	  ((alpha-char-p character)
@@ -411,21 +405,25 @@ parenthesis is reached."
 
      while (< position end)
        
-     do (progn
-	  (multiple-value-bind (component pos)
-	      (parse-component string :start position :end end)
-	    (setf position pos)
-	    (if component
-		(setf components (cons component components))
-		(error "Expected component")))
-	  (multiple-value-bind (operator pos)
-	      (read-operator string :start position :end end :sub-expression sub-expression :function-argument function-argument)
-	    (setf position pos)
-	    (if operator
-		(setf operators (cons operator operators))
-		(if (or (= pos end) sub-expression function-argument)
-		    (loop-finish)
-		    (error "Expected operator")))))
+     do (if (char= (char string position) #\-)
+	    (setf components (cons -1 components)
+		  operators (cons "*" operators)
+		  position (+ position 1))
+	    (progn
+	      (multiple-value-bind (component pos)
+		  (parse-component string :start position :end end)
+		(setf position pos)
+		(if component
+		    (setf components (cons component components))
+		    (error "Expected component")))
+	      (multiple-value-bind (operator pos)
+		  (read-operator string :start position :end end :sub-expression sub-expression :function-argument function-argument)
+		(setf position pos)
+		(if operator
+		    (setf operators (cons operator operators))
+		    (if (or (= pos end) sub-expression function-argument)
+			(loop-finish)
+			(error "Expected operator"))))))
 
      finally
        (return (values (determine-precedence components operators) position))))
