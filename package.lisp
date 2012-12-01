@@ -6,6 +6,9 @@
 	   #:*arithmetic-angle-unit*
 	   #:arithmetic-variable
 	   #:arithmetic-function
+	   
+	   #:with-arithmetic-variable
+	   #:with-arithmetic-function
 
 	   #:parse-expression
 	   #:evaluate-expression

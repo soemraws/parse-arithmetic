@@ -73,6 +73,15 @@ variable did not exist, it is created."
 	(setf *arithmetic-variables* (acons name value *arithmetic-variables*))
 	value)))
 
+(defmacro with-arithmetic-variable ((name value) &body body)
+  "with-arithmetic-variable (name value) form* => results
+
+Evaluates the given forms while a variable with the given name string
+has the given value for parsing of arithmetic."
+  `(let ((*arithmetic-variables* *arithmetic-variables*))
+     (setf (arithmetic-variable ,name) ,value)
+     ,@body))
+
 
 ;; Function: An expression can be a call to a function, whose name is
 ;; uniquely defined by a string.  The string must begin with a letter,
@@ -166,7 +175,13 @@ called, returns an angle in the unit set by *ARITHMETIC-ANGLE-UNIT*."
 				(cons "sqrt" #'sqrt)
 				(cons "exp" #'exp)
 				(cons "log" #'log)
-				(cons "log10" #'(lambda (x) (log x 10))))
+				(cons "log10" #'(lambda (x) (log x 10)))
+				(cons "heaviside" #'(lambda (x &optional (zero-value 1/2))
+						      (float (if (< x 0)
+								 0
+								 (if (> x 0)
+								     1
+								     zero-value)) x))))
   "Defined arithmetic functions, including operators.")
 
 (defun arithmetic-function (name)
@@ -188,6 +203,14 @@ expressions.  If the function name already existed, it is redefined."
       (setf *arithmetic-functions* (acons name function *arithmetic-functions*)))
   function)
 
+(defmacro with-arithmetic-function ((name function) &body body)
+  "with-arithmetic-function (name function) form* => results
+
+Evaluates the given forms while the given function is declared under
+the given name string for parsing of arithmetic."
+  `(let ((*arithmetic-functions* *arithmetic-functions*))
+     (setf (arithmetic-function ,name) ,function)
+     ,@body))
 
 ;;; Operators
 
@@ -470,10 +493,9 @@ of the returned lambda."
       (if argument-names
 	  (let ((expression (replace-arguments expression)))
 	    (setf func #'(lambda (&rest args)
-			   (let ((*arithmetic-functions*
-				  (acons ":ARGUMENT" #'(lambda (i) (nth i args)) *arithmetic-functions*)))
+			   (with-arithmetic-function (":ARGUMENT" #'(lambda (i) (nth i args)))
 			     (evaluate-expression expression)))))
-	  (setf func #'(lambda () (evaluate-expression expression))))
+	  (setf func #'(lambda (&rest args) (declare (ignore args)) (evaluate-expression expression))))
       func)))
 
 (defun parse-assignment (string &key (start 0) end)
