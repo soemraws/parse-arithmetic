@@ -177,9 +177,9 @@ called, returns an angle in the unit set by *ARITHMETIC-ANGLE-UNIT*."
 				(cons "log" #'log)
 				(cons "log10" #'(lambda (x) (log x 10)))
 				(cons "heaviside" #'(lambda (x &optional (zero-value 1/2))
-						      (float (if (< x 0)
+						      (float (if (minusp x)
 								 0
-								 (if (> x 0)
+								 (if (plusp x)
 								     1
 								     zero-value)) x))))
   "Defined arithmetic functions, including operators.")
@@ -358,8 +358,7 @@ parsed expression and the position where parsing ended."
 	 (if (char= #\( character)
 	     (multiple-value-bind (args pos)
 		 (parse-function-arguments string :start (+ position 1) :end end)
-	       (values (nconc (list :function (subseq string start position))
-			      args) pos))
+	       (values (list* :function (subseq string start position) args) pos))
 	     (values (list :variable (subseq string start position)) position)))))
 
 (defun parse-component (string &key (start 0) end)
@@ -376,9 +375,11 @@ the position where parsing ended."
 	(cond
 	  ((char= character #\()
 	   (parse-expression string :start (+ position 1) :end end :sub-expression t))
+	  ((or (digit-char-p character) (char= character #\.))
+	   (parse-float string :start start :end end :junk-allowed t :type *arithmetic-float-format*))
 	  ((alpha-char-p character)
 	   (parse-function-or-variable string :start position :end end))
-	  (t (parse-float string :start start :end end :junk-allowed t :type *arithmetic-float-format*)))))))
+	  (t (error "Expected component.")))))))
 
 
 ;;; Parsing of an expression
@@ -487,7 +488,7 @@ of the returned lambda."
 		      (list :function ":ARGUMENT" pos)
 		      expression)))
 	       ((expression-function-p expression)
-		(nconc (list :function (expression-function-name expression))
+		(list* :function (expression-function-name expression)
 		       (mapcar #'replace-arguments (expression-function-arguments expression)))))))
     (let (func)
       (if argument-names
@@ -508,7 +509,7 @@ assignment character."
     (setf end (length string)))
   (let ((assignment-position (position #\= string :test #'char=)))
     (when assignment-position
-      (values (parse-expression string :start start :end assignment-position)
+      (values (parse-function-or-variable string :start start :end assignment-position)
 	      (parse-expression string :start (+ assignment-position 1) :end end)))))
 
 (defun evaluate-assignment (expression definition-expression)
